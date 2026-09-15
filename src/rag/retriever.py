@@ -4,6 +4,14 @@ from document_loader import load_documents
 from section_chunker import chunk_by_sections
 from embedding_model import LocalEmbeddingModel
 
+import sys
+from pathlib import Path
+
+PROJECT_ROOT = Path(__file__).resolve().parents[2]
+sys.path.append(str(PROJECT_ROOT / "src"))
+
+from shared.cache.embedding_cache import EmbeddingCache
+
 
 class SemanticRetriever:
     def __init__(self, documents_directory: str):
@@ -14,7 +22,26 @@ class SemanticRetriever:
 
         chunk_texts = [chunk["content"] for chunk in self.chunks]
 
-        self.chunk_embeddings = self.embedding_model.embed_texts(chunk_texts)
+        self.cache = EmbeddingCache()
+
+        fingerprint = self.cache.create_fingerprint(self.chunks)
+
+        cached_embeddings = self.cache.load(fingerprint)
+
+        if cached_embeddings is not None:
+            print("Loading embeddings from cache...")
+            self.chunk_embeddings = cached_embeddings
+        else:
+            print("Embedding cache miss. Generating embeddings...")
+
+            self.chunk_embeddings = self.embedding_model.embed_texts(
+                chunk_texts
+            )
+
+            self.cache.save(
+                embeddings=self.chunk_embeddings,
+                fingerprint=fingerprint,
+            )
 
     def search(self, query: str, top_k: int = 3):
         query_embedding = self.embedding_model.embed_query(query)

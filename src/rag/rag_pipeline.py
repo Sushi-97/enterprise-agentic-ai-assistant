@@ -1,7 +1,8 @@
-import json
-import urllib.request
+import time
 
 from retriever import SemanticRetriever
+from shared.llm.ollama_client import OllamaClient
+from shared.observability.tracing import RequestTrace
 
 
 class RAGPipeline:
@@ -11,10 +12,31 @@ class RAGPipeline:
         model_name: str = "llama3.2:3b",
     ):
         self.retriever = SemanticRetriever(documents_directory)
-        self.model_name = model_name
+        self.llm = OllamaClient(model_name=model_name)
 
-    def generate_answer(self, query: str, top_k: int = 3) -> str:
-        results = self.retriever.search(query, top_k=top_k)
+    def generate_answer(
+        self,
+        query: str,
+        top_k: int = 3,
+    ):
+
+        trace = RequestTrace(query=query)
+
+        retrieval_start = time.perf_counter()
+
+        results = self.retriever.search(
+            query,
+            top_k=top_k,
+        )
+
+        retrieval_latency = time.perf_counter() - retrieval_start
+
+        trace.add_event(
+            component="retrieval",
+            latency_seconds=retrieval_latency,
+            top_k=top_k,
+            results_returned=len(results),
+        )
 
         context_parts = []
 
@@ -53,33 +75,41 @@ User question:
 Answer:
 """.strip()
 
-        payload = {
-            "model": self.model_name,
-            "prompt": prompt,
-            "stream": False,
-        }
-
-        request = urllib.request.Request(
-            "http://localhost:11434/api/generate",
-            data=json.dumps(payload).encode("utf-8"),
-            headers={"Content-Type": "application/json"},
-            method="POST",
+        answer, metrics = self.llm.generate(
+            prompt=prompt,
+            agent="knowledge_agent",
         )
 
-        with urllib.request.urlopen(request) as response:
-            response_data = json.loads(response.read().decode("utf-8"))
+        trace.add_event(
+            component="knowledge_agent",
+            model=metrics.model,
+            prompt_tokens=metrics.prompt_tokens,
+            completion_tokens=metrics.completion_tokens,
+            total_tokens=metrics.total_tokens,
+            latency_seconds=metrics.latency_seconds,
+            estimated_cost_usd=metrics.estimated_cost_usd,
+            cache_hit=metrics.cache_hit,
+        )
 
-        return response_data["response"]
+        trace_data = trace.finish()                     
+
+        return answer, metrics, trace_data
 
 
 if __name__ == "__main__":
     rag = RAGPipeline("data/documents")
 
-    # query = "How many annual leave days can I carry forward?"
     query = "Does AcmeTech provide employees with a gym membership?"
 
-    answer = rag.generate_answer(query)
+    answer, metrics, trace = rag.generate_answer(query)
 
     print(f"\nQuestion: {query}\n")
+
     print("Answer:")
     print(answer)
+
+    print("\nMetrics:")
+    print(metrics.to_dict())
+
+    print("\nTrace:")
+    print(trace)
