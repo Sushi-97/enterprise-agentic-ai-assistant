@@ -1,6 +1,6 @@
 import time
 
-from retriever import SemanticRetriever
+from retrieval.service import SemanticRetriever
 from shared.llm.ollama_client import OllamaClient
 from shared.observability.tracing import RequestTrace
 

@@ -1,8 +1,9 @@
 import numpy as np
 
-from document_loader import load_documents
-from section_chunker import chunk_by_sections
-from embedding_model import LocalEmbeddingModel
+from retrieval.connectors.local_documents import load_documents
+from retrieval.chunking.markdown_section_chunker import chunk_by_sections
+from retrieval.embeddings.local_embedding import LocalEmbeddingModel
+from shared.cache.embedding_cache import EmbeddingCache
 
 import sys
 from pathlib import Path
@@ -83,3 +84,46 @@ if __name__ == "__main__":
         print(f"Title: {result['metadata']['document_title']}")
         print(result["content"])
         print("-" * 60)
+
+
+from retrieval.interfaces import RetrievalStrategy
+from retrieval.models import (
+    RetrievalRequest,
+    RetrievalResponse,
+    RetrievalResult,
+)
+
+
+class LocalDocumentRetrieval(RetrievalStrategy):
+
+    def __init__(self, documents_directory: str):
+        self.retriever = SemanticRetriever(
+            documents_directory
+        )
+
+    def retrieve(
+        self,
+        request: RetrievalRequest,
+    ) -> RetrievalResponse:
+
+        raw_results = self.retriever.search(
+            query=request.query,
+            top_k=request.top_k,
+        )
+
+        results = [
+            RetrievalResult(
+                content=result["content"],
+                score=float(result["score"]),
+                source=result["metadata"]["source"],
+                metadata=result["metadata"],
+            )
+            for result in raw_results
+        ]
+
+        return RetrievalResponse(
+            query=request.query,
+            source=request.source,
+            results=results,
+            result_count=len(results),
+        )
