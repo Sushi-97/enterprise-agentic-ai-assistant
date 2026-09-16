@@ -1,6 +1,16 @@
 import time
 
-from retrieval.service import SemanticRetriever
+from apps.data_service.domain.models.retrieval import RetrievalRequest
+from apps.data_service.infrastructure.indexing.embeddings.local_embedding import (
+    LocalEmbeddingModel,
+)
+from apps.data_service.infrastructure.indexing.indexer import (
+    LocalDocumentIndexer,
+)
+from apps.data_service.infrastructure.retrieval.local_document_retriever import (
+    LocalDocumentRetrieval,
+)
+from shared.cache.embedding_cache import EmbeddingCache
 from shared.llm.ollama_client import OllamaClient
 from shared.observability.tracing import RequestTrace
 
@@ -11,39 +21,61 @@ class RAGPipeline:
         documents_directory: str,
         model_name: str = "llama3.2:3b",
     ):
-        self.retriever = SemanticRetriever(documents_directory)
-        self.llm = OllamaClient(model_name=model_name)
+        embedding_model = LocalEmbeddingModel()
+
+        indexer = LocalDocumentIndexer(
+            documents_directory=documents_directory,
+            embedding_model=embedding_model,
+            cache=EmbeddingCache(),
+        )
+
+        index = indexer.build()
+
+        self.retriever = LocalDocumentRetrieval(
+            index=index,
+            embedding_model=embedding_model,
+        )
+
+        self.llm = OllamaClient(
+            model_name=model_name
+        )
 
     def generate_answer(
         self,
         query: str,
         top_k: int = 3,
     ):
-
         trace = RequestTrace(query=query)
 
         retrieval_start = time.perf_counter()
 
-        results = self.retriever.search(
-            query,
+        retrieval_request = RetrievalRequest(
+            query=query,
+            source="local_documents",
             top_k=top_k,
         )
 
-        retrieval_latency = time.perf_counter() - retrieval_start
+        retrieval_response = self.retriever.retrieve(
+            retrieval_request
+        )
+
+        retrieval_latency = (
+            time.perf_counter() - retrieval_start
+        )
 
         trace.add_event(
             component="retrieval",
             latency_seconds=retrieval_latency,
             top_k=top_k,
-            results_returned=len(results),
+            results_returned=retrieval_response.result_count,
         )
 
         context_parts = []
 
-        for result in results:
-            source = result["metadata"]["source"]
-            title = result["metadata"]["document_title"]
-            content = result["content"]
+        for result in retrieval_response.results:
+            source = result.source
+            title = result.metadata["document_title"]
+            content = result.content
 
             context_parts.append(
                 f"Source: {source}\n"
@@ -51,7 +83,9 @@ class RAGPipeline:
                 f"Content:\n{content}"
             )
 
-        context = "\n\n---\n\n".join(context_parts)
+        context = "\n\n---\n\n".join(
+            context_parts
+        )
 
         prompt = f"""
 You are an enterprise knowledge assistant for AcmeTech.
@@ -59,6 +93,7 @@ You are an enterprise knowledge assistant for AcmeTech.
 Answer the user's question using ONLY the provided context.
 
 Rules:
+
 1. Do not use outside knowledge.
 2. If the answer is not supported by the context, say:
    "I could not find enough information in the available company documents."
@@ -67,9 +102,11 @@ Rules:
 5. Do not invent policies, numbers, dates, or approvals.
 
 Context:
+
 {context}
 
 User question:
+
 {query}
 
 Answer:
@@ -91,7 +128,7 @@ Answer:
             cache_hit=metrics.cache_hit,
         )
 
-        trace_data = trace.finish()                     
+        trace_data = trace.finish()
 
         return answer, metrics, trace_data
 
@@ -99,9 +136,14 @@ Answer:
 if __name__ == "__main__":
     rag = RAGPipeline("data/documents")
 
-    query = "Does AcmeTech provide employees with a gym membership?"
+    query = (
+        "Does AcmeTech provide employees "
+        "with a gym membership?"
+    )
 
-    answer, metrics, trace = rag.generate_answer(query)
+    answer, metrics, trace = (
+        rag.generate_answer(query)
+    )
 
     print(f"\nQuestion: {query}\n")
 

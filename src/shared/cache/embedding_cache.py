@@ -3,67 +3,128 @@ import json
 from pathlib import Path
 
 import numpy as np
+from langchain_core.documents import Document
 
 
 class EmbeddingCache:
-    def __init__(self, cache_directory: str = ".cache/embeddings"):
+    """
+    Persistent cache for document embeddings.
+
+    Cache validity depends on:
+    - document content
+    - document metadata
+    - embedding model
+    """
+
+    def __init__(
+        self,
+        cache_directory: str = ".cache/embeddings",
+    ) -> None:
         self.cache_directory = Path(cache_directory)
-        self.cache_directory.mkdir(parents=True, exist_ok=True)
+        self.cache_directory.mkdir(
+            parents=True,
+            exist_ok=True,
+        )
 
-        self.embeddings_file = self.cache_directory / "embeddings.npy"
-        self.metadata_file = self.cache_directory / "metadata.json"
+        self.embeddings_file = (
+            self.cache_directory / "embeddings.npy"
+        )
+        self.metadata_file = (
+            self.cache_directory / "metadata.json"
+        )
 
-    def create_fingerprint(self, chunks: list[dict]) -> str:
+    def create_fingerprint(
+        self,
+        documents: list[Document],
+        embedding_model: str,
+    ) -> str:
         """
-        Create a deterministic fingerprint of the knowledge-base chunks.
-
-        If chunk content changes, the fingerprint changes and the
-        existing embedding cache becomes invalid.
+        Create a deterministic fingerprint for the indexed documents
+        and embedding configuration.
         """
+
         hasher = hashlib.sha256()
 
-        for chunk in chunks:
-            hasher.update(chunk["content"].encode("utf-8"))
+        # Prevent embeddings from one model being reused by another.
+        hasher.update(
+            embedding_model.encode("utf-8")
+        )
 
-            metadata = json.dumps(
-                chunk["metadata"],
-                sort_keys=True,
+        for document in documents:
+            hasher.update(
+                document.page_content.encode("utf-8")
             )
 
-            hasher.update(metadata.encode("utf-8"))
+            metadata = json.dumps(
+                document.metadata,
+                sort_keys=True,
+                default=str,
+            )
+
+            hasher.update(
+                metadata.encode("utf-8")
+            )
 
         return hasher.hexdigest()
 
-    def load(self, fingerprint: str):
+    def load(
+        self,
+        fingerprint: str,
+    ) -> np.ndarray | None:
         """
-        Load cached embeddings if the cache exists and its fingerprint
-        matches the current knowledge base.
+        Load embeddings only when the stored fingerprint matches.
         """
+
         if not self.embeddings_file.exists():
             return None
 
         if not self.metadata_file.exists():
             return None
 
-        with self.metadata_file.open("r", encoding="utf-8") as file:
+        with self.metadata_file.open(
+            "r",
+            encoding="utf-8",
+        ) as file:
             metadata = json.load(file)
 
         if metadata.get("fingerprint") != fingerprint:
             return None
 
-        return np.load(self.embeddings_file)
+        return np.load(
+            self.embeddings_file,
+            allow_pickle=False,
+        )
 
-    def save(self, embeddings, fingerprint: str):
-        """
-        Persist embeddings and the corresponding knowledge-base
-        fingerprint.
-        """
-        np.save(self.embeddings_file, embeddings)
+    def save(
+        self,
+        embeddings: np.ndarray,
+        fingerprint: str,
+        embedding_model: str,
+    ) -> None:
+        """Persist embeddings and cache metadata."""
+
+        np.save(
+            self.embeddings_file,
+            embeddings,
+        )
 
         metadata = {
             "fingerprint": fingerprint,
+            "embedding_model": embedding_model,
             "embedding_count": len(embeddings),
+            "embedding_dimension": (
+                int(embeddings.shape[1])
+                if embeddings.ndim == 2
+                else None
+            ),
         }
 
-        with self.metadata_file.open("w", encoding="utf-8") as file:
-            json.dump(metadata, file, indent=2)
+        with self.metadata_file.open(
+            "w",
+            encoding="utf-8",
+        ) as file:
+            json.dump(
+                metadata,
+                file,
+                indent=2,
+            )

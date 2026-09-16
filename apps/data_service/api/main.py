@@ -13,6 +13,13 @@ from apps.data_service.application.services.retrieval_service import (
     RetrievalService,
 )
 
+from apps.data_service.infrastructure.indexing.embeddings.local_embedding import (
+    LocalEmbeddingModel,
+)
+from apps.data_service.infrastructure.indexing.indexer import (
+    LocalDocumentIndexer,
+)
+from shared.cache.embedding_cache import EmbeddingCache
 
 def create_app() -> FastAPI:
     app = FastAPI(
@@ -20,10 +27,24 @@ def create_app() -> FastAPI:
         version="0.1.0",
     )
 
+    embedding_model = LocalEmbeddingModel()
+
+    indexer = LocalDocumentIndexer(
+        documents_directory="data/documents",
+        embedding_model=embedding_model,
+        cache=EmbeddingCache(),
+    )
+
+    local_index = indexer.build()
+
     retrieval_service = RetrievalService()
+
     retrieval_service.register(
         "local_documents",
-        LocalDocumentRetrieval("data/documents"),
+        LocalDocumentRetrieval(
+            index=local_index,
+            embedding_model=embedding_model,
+        ),
     )
 
     configure_retrieval_service(retrieval_service)

@@ -1,11 +1,14 @@
-import sys
-from pathlib import Path
-
-# Add project root to Python path so we can import from src/
-PROJECT_ROOT = Path(__file__).resolve().parents[2]
-sys.path.append(str(PROJECT_ROOT / "src" / "rag"))
-
-from retriever import SemanticRetriever
+from apps.data_service.domain.models.retrieval import RetrievalRequest
+from apps.data_service.infrastructure.indexing.embeddings.local_embedding import (
+    LocalEmbeddingModel,
+)
+from apps.data_service.infrastructure.indexing.indexer import (
+    LocalDocumentIndexer,
+)
+from apps.data_service.infrastructure.retrieval.local_document_retriever import (
+    LocalDocumentRetrieval,
+)
+from shared.cache.embedding_cache import EmbeddingCache
 
 
 TEST_CASES = [
@@ -57,25 +60,38 @@ TEST_CASES = [
 ]
 
 
-def evaluate_retriever(retriever, test_cases, top_k=3):
+def evaluate_retriever(
+    retriever: LocalDocumentRetrieval,
+    test_cases: list[dict],
+    top_k: int = 3,
+) -> None:
     hit_at_1 = 0
     hit_at_k = 0
-    reciprocal_rank_sum = 0
+    reciprocal_rank_sum = 0.0
 
     for test in test_cases:
-        results = retriever.search(test["question"], top_k=top_k)
+        request = RetrievalRequest(
+            query=test["question"],
+            source="local_documents",
+            top_k=top_k,
+        )
+
+        response = retriever.retrieve(request)
 
         correct_rank = None
 
-        for rank, result in enumerate(results, start=1):
+        for rank, result in enumerate(
+            response.results,
+            start=1,
+        ):
             source_match = (
-                result["metadata"]["source"]
+                result.source
                 == test["expected_source"]
             )
 
             section_match = (
                 test["expected_section"].lower()
-                in result["content"].lower()
+                in result.content.lower()
             )
 
             if source_match and section_match:
@@ -91,10 +107,14 @@ def evaluate_retriever(retriever, test_cases, top_k=3):
 
         print(f"\nQuestion: {test['question']}")
 
-        if correct_rank:
-            print(f"Correct chunk rank: {correct_rank}")
+        if correct_rank is not None:
+            print(
+                f"Correct chunk rank: {correct_rank}"
+            )
         else:
-            print(f"Correct chunk not found in top {top_k}")
+            print(
+                f"Correct chunk not found in top {top_k}"
+            )
 
     total = len(test_cases)
 
@@ -105,15 +125,27 @@ def evaluate_retriever(retriever, test_cases, top_k=3):
     print("\n" + "=" * 50)
     print("RETRIEVAL EVALUATION")
     print("=" * 50)
-
-    print(f"Test cases:   {total}")
-    print(f"Hit Rate@1:  {hit_rate_1:.2%}")
-    print(f"Hit Rate@{top_k}:  {hit_rate_k:.2%}")
-    print(f"MRR:         {mrr:.3f}")
+    print(f"Test cases:    {total}")
+    print(f"Hit Rate@1:   {hit_rate_1:.2%}")
+    print(f"Hit Rate@{top_k}:   {hit_rate_k:.2%}")
+    print(f"MRR:           {mrr:.3f}")
 
 
 if __name__ == "__main__":
-    retriever = SemanticRetriever("data/documents")
+    embedding_model = LocalEmbeddingModel()
+
+    indexer = LocalDocumentIndexer(
+        documents_directory="data/documents",
+        embedding_model=embedding_model,
+        cache=EmbeddingCache(),
+    )
+
+    index = indexer.build()
+
+    retriever = LocalDocumentRetrieval(
+        index=index,
+        embedding_model=embedding_model,
+    )
 
     evaluate_retriever(
         retriever=retriever,
