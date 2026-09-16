@@ -9,7 +9,7 @@ from apps.data_service.api.schemas.retrieval import (
 from apps.data_service.application.services.retrieval_service import (
     RetrievalService,
 )
-from apps.data_service.domain.models.retrieval import RetrievalRequest
+from shared.contracts.retrieval import RetrievalRequest
 
 
 router = APIRouter(

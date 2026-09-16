@@ -1,6 +1,6 @@
 from abc import ABC, abstractmethod
 
-from apps.data_service.domain.models.retrieval import (
+from shared.contracts.retrieval import (
     RetrievalRequest,
     RetrievalResponse,
 )

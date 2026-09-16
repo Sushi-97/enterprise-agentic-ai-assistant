@@ -2,7 +2,7 @@ from qdrant_client import QdrantClient
 
 from tests.evaluation.retrieval_eval import TEST_CASES
 
-from apps.data_service.domain.models.retrieval import (
+from shared.contracts.retrieval import (
     RetrievalMode,
     RetrievalRequest,
 )

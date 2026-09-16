@@ -1,4 +1,4 @@
-from apps.data_service.domain.models.retrieval import RetrievalRequest
+from shared.contracts.retrieval import RetrievalRequest
 from apps.data_service.infrastructure.indexing.embeddings.local_embedding import (
     LocalEmbeddingModel,
 )

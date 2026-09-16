@@ -3,7 +3,7 @@ import urllib.error
 import urllib.request
 
 from apps.agent_service.domain.interfaces.data_api_client import DataAPIClient
-from apps.data_service.domain.models.retrieval import (
+from shared.contracts.retrieval import (
     RetrievalRequest,
     RetrievalResponse,
     RetrievalResult,

@@ -1,5 +1,5 @@
 from apps.data_service.domain.interfaces.search_backend import SearchBackend
-from apps.data_service.domain.models.retrieval import (
+from shared.contracts.retrieval import (
     RetrievalRequest,
     RetrievalResult,
 )

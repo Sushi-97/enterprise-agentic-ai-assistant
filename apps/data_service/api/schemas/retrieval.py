@@ -2,7 +2,7 @@ from typing import Any
 
 from pydantic import BaseModel, Field
 
-from apps.data_service.domain.models.retrieval import RetrievalMode
+from shared.contracts.retrieval import RetrievalMode
 
 class RetrievalAPIRequest(BaseModel):
     query: str = Field(min_length=1)
