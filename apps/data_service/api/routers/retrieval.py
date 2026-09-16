@@ -45,6 +45,7 @@ def retrieve(request: RetrievalAPIRequest):
             source=request.source,
             top_k=request.top_k,
             filters=request.filters,
+            retrieval_mode=request.retrieval_mode,
         )
 
         response = retrieval_service.retrieve(retrieval_request)

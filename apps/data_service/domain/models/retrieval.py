@@ -1,5 +1,12 @@
 from dataclasses import dataclass, field
+from enum import Enum
 from typing import Any
+
+
+class RetrievalMode(str, Enum):
+    SEMANTIC = "semantic"
+    KEYWORD = "keyword"
+    HYBRID = "hybrid"
 
 
 @dataclass
@@ -8,6 +15,7 @@ class RetrievalRequest:
     source: str
     top_k: int = 3
     filters: dict[str, Any] = field(default_factory=dict)
+    retrieval_mode: RetrievalMode = RetrievalMode.SEMANTIC
 
 
 @dataclass

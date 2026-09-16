@@ -5,6 +5,12 @@ from apps.data_service.infrastructure.indexing.embeddings.local_embedding import
 from apps.data_service.infrastructure.indexing.indexer import (
     LocalDocumentIndexer,
 )
+from apps.data_service.infrastructure.indexing.keyword.bm25_index import (
+    BM25Index,
+)
+from apps.data_service.infrastructure.retrieval.backends.local_search_backend import (
+    LocalSearchBackend,
+)
 from apps.data_service.infrastructure.retrieval.local_document_retriever import (
     LocalDocumentRetrieval,
 )
@@ -142,9 +148,21 @@ if __name__ == "__main__":
 
     index = indexer.build()
 
-    retriever = LocalDocumentRetrieval(
-        index=index,
+    # Build the keyword index over exactly the same chunks
+    # used by the semantic vector index.
+    keyword_index = BM25Index(index.documents)
+
+    # Search implementation is now hidden behind SearchBackend.
+    search_backend = LocalSearchBackend(
+        vector_index=index,
+        keyword_index=keyword_index,
         embedding_model=embedding_model,
+    )
+
+    # RetrievalStrategy no longer knows about NumPy,
+    # embeddings, BM25, or RRF directly.
+    retriever = LocalDocumentRetrieval(
+        search_backend=search_backend,
     )
 
     evaluate_retriever(
