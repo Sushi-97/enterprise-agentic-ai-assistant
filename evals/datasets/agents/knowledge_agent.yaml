@@ -1,0 +1,59 @@
+name: knowledge_agent_v1
+
+cases:
+  - id: leave_carry_forward
+    input:
+      question: "How many annual leave days can I carry forward?"
+    expected:
+      answer_contains:
+        - "5"
+      sources:
+        - "leave_policy.md"
+      grounded: true
+
+  - id: sick_leave
+    input:
+      question: "How many paid sick leave days do employees receive?"
+    expected:
+      answer_contains:
+        - "10"
+      sources:
+        - "leave_policy.md"
+      grounded: true
+
+  - id: meal_allowance
+    input:
+      question: "What is the daily meal allowance during business travel?"
+    expected:
+      answer_contains:
+        - "60"
+      sources:
+        - "travel_policy.md"
+      grounded: true
+
+  - id: receipt_requirement
+    input:
+      question: "When do I need a receipt for an expense?"
+    expected:
+      answer_contains:
+        - "25"
+      sources:
+        - "expense_policy.md"
+      grounded: true
+
+  - id: expense_approval
+    input:
+      question: "Who needs to approve an expense report above $500?"
+    expected:
+      answer_contains:
+        - "Finance"
+      sources:
+        - "expense_policy.md"
+      grounded: true
+
+  - id: unsupported_gym_membership
+    input:
+      question: "Does AcmeTech provide employees with a gym membership?"
+    expected:
+      abstain: true
+      grounded: false

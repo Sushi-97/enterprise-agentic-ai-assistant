@@ -1,0 +1,58 @@
+name: acmetech_policy_retrieval_v1
+source: local_documents
+top_k: 3
+
+cases:
+  - id: leave_carry_forward
+    question: "How many annual leave days can I carry forward?"
+    expected:
+      source: "leave_policy.md"
+      section: "Carry Forward"
+
+  - id: sick_leave
+    question: "How many paid sick leave days do employees receive?"
+    expected:
+      source: "leave_policy.md"
+      section: "Sick Leave"
+
+  - id: long_leave_request
+    question: "How far in advance should I request more than five days of leave?"
+    expected:
+      source: "leave_policy.md"
+      section: "Leave Request Process"
+
+  - id: travel_meals
+    question: "What is the daily meal allowance during business travel?"
+    expected:
+      source: "travel_policy.md"
+      section: "Meals"
+
+  - id: business_class
+    question: "Can I book business class for a flight longer than ten hours?"
+    expected:
+      source: "travel_policy.md"
+      section: "Air Travel"
+
+  - id: travel_expense_submission
+    question: "How soon after a trip must I submit my travel expenses?"
+    expected:
+      source: "travel_policy.md"
+      section: "Expense Submission"
+
+  - id: receipt_requirement
+    question: "When do I need a receipt for an expense?"
+    expected:
+      source: "expense_policy.md"
+      section: "Receipt Requirements"
+
+  - id: expense_approval
+    question: "Who needs to approve an expense report above $500?"
+    expected:
+      source: "expense_policy.md"
+      section: "Approval Process"
+
+  - id: software_subscription
+    question: "Can I expense a new software subscription?"
+    expected:
+      source: "expense_policy.md"
+      section: "Software and Subscriptions"
